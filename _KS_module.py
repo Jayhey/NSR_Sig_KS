@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import sys
 
 
 def scale_timestamp(data, scale=1e+7):
@@ -26,11 +27,41 @@ def angle(p1, p2, time):
         return ans / time
 
 
+def printProgress (iteration, total, prefix = '', suffix = '', decimals = 1, barLength = 100):
+    formatStr = "{0:." + str(decimals) + "f}"
+    percent = formatStr.format(100 * (iteration / float(total)))
+    filledLength = int(round(barLength * iteration / float(total)))
+    bar = '#' * filledLength + '-' * (barLength - filledLength)
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percent, '%', suffix)),
+    if iteration == total:
+        sys.stdout.write('\n')
+    sys.stdout.flush()
+    
+def get_data_dic(partition_type):
+    path = '%s-dataset%02d' % (partition_type, 0)
+    dataset = pd.read_pickle('./data/datasets/sig/'+path)
+
+    datas = dataset['data']
+    datas = scale_timestamp(datas)
+    targets = dataset['target']
+    notes = dataset['note']
+
+    data_dic = {(target, note): []
+                for note in notes for target in targets}
+
+    for i, df in enumerate(datas):
+        # df = diff_dataframe(df)
+        data_dic[targets[i], notes[i]].append(df)
+        printProgress(i, len(datas), 'Load {} data :'.format(partition_type), '', 1, 50)
+    print("")
+    return data_dic
+
+
 def diff_dataframe(table):
     stroke_idx = np.where((table['action.0']=='DOWN'))[0]
     stroke_idx = np.append(stroke_idx, len(table)-1)
     stroke_num = int(len(stroke_idx))
-    stroke_dict = {}
+    stroke_list = []
     for i in range(stroke_num-1):
         tmp = table.iloc[stroke_idx[i]:stroke_idx[i+1]]
         df_tmp = pd.DataFrame()
@@ -53,8 +84,10 @@ def diff_dataframe(table):
         df_tmp['z'] = tmp.apply(lambda x: gyro_velocity(x['gz.0'],
                                                         x['gz.1'],
                                                         x['timeInterval']), axis=1)
-        stroke_dict[str(i+1)] = df_tmp#[:-1]
-    return stroke_dict
+        df_tmp = df_tmp[~(df_tmp == 0).any(axis=1)]
+        stroke_list.append(df_tmp)
+        #         stroke_dict[str(i+1)] = df_tmp#[:-1]
+    return stroke_list
 
 
 # KS 계산기. 얘를 수정해야할듯(3차원 : 속도, angle, 자이로)
@@ -73,8 +106,15 @@ def KS_calculator(a,b, unit=1):
         KS = np.max(tmp) 
         return KS
 
-    for col in a['1'].columns:
-        KS_dict[col] = np.mean([KS_function(a[str(i+1)][col], b[str(i+1)][col]) for i in range(len(a))])
+    for col in a[0].columns:
+        if col == 'axis_velocity':
+            unit = 0.1 
+        elif col == 'angle':
+            unit = 0.01
+        else:
+            unit = 0.001
+        KS_dict[col] = np.mean([KS_function(a[i][col], b[i][col], unit=unit) 
+                                for i in range(len(a))])
 
     df = pd.DataFrame(data=KS_dict, index=[0])
     return df
@@ -99,7 +139,7 @@ def final_df(valid_df, test_df, index, colname):
     return df
 
 # EER 구하기
-def get_df_(ks_df):
+def get_EER(ks_df):
     se_target = ks_df['Target']
     columns = ks_df.columns[:-1]
     results = []
@@ -125,6 +165,17 @@ def get_df_(ks_df):
     tmp_df = pd.DataFrame([results], columns=columns)
     return tmp_df
 
+# AUROC 구하기
+def get_auroc(df):
+    targets = df['Target'].values
+    scores = []
+    for col in df.columns[:-1]:
+        vals = np.array(df[col])
+        score = roc_auc_score(targets, vals)
+        score = abs(score-0.5)+0.5
+        scores.append(score)
+    df = pd.DataFrame([scores], columns=df.columns[:-1])
+    return df
 
 
 # 획 나눠서 dict로 집어넣기
