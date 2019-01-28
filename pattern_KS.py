@@ -1,10 +1,9 @@
 from _KS_module import *
-import numpy as np
 import os
 import multiprocessing as mp
 import time
 from tqdm import tqdm_notebook
-from sklearn.metrics import roc_auc_score
+
 
 output_path = os.path.join(os.getcwd(), 'Sig_KS_results')
 
@@ -15,28 +14,30 @@ tr_dic = get_data_dic('tr')
 te_dic = get_data_dic('te')
 
 colname = ['velocity', 'angle', 'gyro', 
-           'velocity_angle', 'velocity_gyro', 'angle_gyro', 
-           'velocity_angle_gyro']
+        'velocity_angle', 'velocity_gyro', 'angle_gyro', 
+        'velocity_angle_gyro']
 # 0 : velocity, 1 : angle, 2 3 4 : gyro
 index = [[0], [1], [2,3,4],
-         [0,1], [0,2,3,4], [1,2,3,4], 
-         [0,1,2,3,4]]
+        [0,1], [0,2,3,4], [1,2,3,4], 
+        [0,1,2,3,4]]
 
-# 획 수만 조사
+total_i = list(range(26))
+
+
 def pattern_main(i):
-    print("Process start")
     sig_type = list(tr_dic.keys())[50*i:50*(i+1)]
     sig_tr = list(tr_dic.values())[50*i:50*(i+1)]
     sig_te = list(te_dic.values())[50*i:50*(i+1)]
     sig_df = []
-    user_cnt = 1
+
     for user_iter in range(50):
+        iter_type = sig_type[user_iter]
+
         print("iter : {}/26".format(i),
               " type : {}".format(iter_type[1][0]),
               " figure : {}".format(iter_type[1][1]),
-              " user : {}/50".format(user_cnt))
+              " user : {}/50".format(user_iter+1))
         
-        iter_type = sig_type[user_iter]
         tmp = sig_tr[user_iter][0]
         stroke_num = len(np.where(tmp['action.0'].values == 'DOWN')[0])
         # valid_tr_ = tr_dic[('39', ('sig-en',1))]
@@ -77,14 +78,37 @@ def pattern_main(i):
         df = get_auroc(ks_df)
         sig_df.append(df)
         
-        user_cnt += 1
     result_df = pd.concat(sig_df)
     mean_std_df = pd.DataFrame([result_df.mean(), result_df.std()], index=['Mean','Std'])
     mean_std_df.to_csv(os.path.join(output_path, 
-                                    "{}-{}_EER_results.csv".foramt(iter_type[1][0], iter_type[1][1])))
-    
+                                    "{}-{}_EER_results.csv".format(iter_type[1][0], iter_type[1][1])))
 
-total_i = list(range(26))
+
 
 pool = mp.Pool(os.cpu_count()-2)
 pool.map(pattern_main, total_i)
+
+
+
+# if __name__=='__main__': 
+#     output_path = os.path.join(os.getcwd(), 'Sig_KS_results')
+
+#     if not os.path.exists(output_path):
+#         os.mkdir(output_path)
+
+#     tr_dic = get_data_dic('tr')
+#     te_dic = get_data_dic('te')
+
+#     colname = ['velocity', 'angle', 'gyro', 
+#             'velocity_angle', 'velocity_gyro', 'angle_gyro', 
+#             'velocity_angle_gyro']
+#     # 0 : velocity, 1 : angle, 2 3 4 : gyro
+#     index = [[0], [1], [2,3,4],
+#             [0,1], [0,2,3,4], [1,2,3,4], 
+#             [0,1,2,3,4]]
+
+#     total_i = list(range(26))
+
+#     pool = mp.Pool(os.cpu_count()-2)
+#     pool.map(pattern_main, total_i)
+    

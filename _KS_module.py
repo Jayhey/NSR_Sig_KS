@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sys
+from sklearn.metrics import roc_auc_score
 
 
 def scale_timestamp(data, scale=1e+7):
@@ -113,8 +114,7 @@ def KS_calculator(a,b, unit=1):
             unit = 0.01
         else:
             unit = 0.001
-        KS_dict[col] = np.mean([KS_function(a[i][col], b[i][col], unit=unit) 
-                                for i in range(len(a))])
+        KS_dict[col] = np.mean([KS_function(a[i][col], b[i][col], unit=unit) for i in range(len(a))])
 
     df = pd.DataFrame(data=KS_dict, index=[0])
     return df
