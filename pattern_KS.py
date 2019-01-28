@@ -3,9 +3,17 @@ import numpy as np
 import os
 import multiprocessing as mp
 import time
-
+from tqdm import tqdm
 
 def pattern_main(args):
+    output_path = os.path.join(os.getcwd(), 'Sig_KS_results')
+    auroc_path = os.path.join(output_path, 'AUROC_results')
+
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+
+    if not os.path.exists(auroc_path):
+        os.mkdir(auroc_path)
     # print("Process start")
     sig_type = args[0]
     sig_tr = args[1]
@@ -47,14 +55,14 @@ def pattern_main(args):
                     test_te.append(tmp[t])
 
             test_df, valid_df = [], []
-            for i in range(len(test_te)):
+            for i in tqdm(range(len(test_te)), leave=False, desc='test KS'):
                 test_df.append(KS_calculator(valid_tr, test_te[i]))
-                #printProgress(i, len(test_te), 'Calculate KS :', '', 1, 50)
+                # printProgress(i, len(test_te), 'Calculate KS :', '', 1, 50)
             test_df = pd.concat(test_df)
 
-            for i in range(len(valid_te)):
+            for i in tqdm(range(len(valid_te)), leave=False, desc='valid KS'):
                 valid_df.append(KS_calculator(valid_tr, valid_te[i]))
-                #printProgress(i, len(valid_te), 'Calculate KS :', '', 1, 50)
+                # printProgress(i, len(valid_te), 'Calculate KS :', '', 1, 50)
             valid_df = pd.concat(valid_df)
 
             ks_df = final_df(valid_df, test_df, index, colname)
@@ -68,6 +76,7 @@ def pattern_main(args):
                   " type : {}".format(iter_type[1][0]),
                   " figure : {}".format(iter_type[1][1]),
                   " user : {}/50".format(str(user_iter+1)),
+                  " step : {}".format(i),
                   " Error!!!!!! ")
             print(e)
             
@@ -78,14 +87,6 @@ def pattern_main(args):
 
 
 if __name__ == "__main__":
-    output_path = os.path.join(os.getcwd(), 'Sig_KS_results')
-    auroc_path = os.path.join(output_path, 'AUROC_results')
-
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-
-    if not os.path.exists(auroc_path):
-        os.mkdir(auroc_path)
         
     tr_dic = get_data_dic('tr')
     te_dic = get_data_dic('te')
